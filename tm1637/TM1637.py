@@ -97,25 +97,33 @@ class TM1637(object):
     def write_byte(self, val):
         # lsb -> msb
         for i in range(8):
-            gpio.output(self.gpio_clk, gpio.LOW)
             b = (val >> i) & 0x01
             gpio.output(self.gpio_dio, b)
+            self.delay()
             gpio.output(self.gpio_clk, gpio.HIGH)
+            self.delay()
+            gpio.output(self.gpio_clk, gpio.LOW)
+            self.delay()
 
         # read ack
         gpio.setup(self.gpio_dio, gpio.IN, gpio.PUD_UP)
-        gpio.output(self.gpio_clk, gpio.LOW)
+        self.delay()
+        gpio.output(self.gpio_clk, gpio.HIGH)
+        self.delay()
 
         for i in range(1, 1025):
             if gpio.input(self.gpio_dio) == gpio.LOW:
                 break
             if i % 128 == 0:
                 gpio.setup(self.gpio_dio, gpio.OUT, gpio.PUD_OFF, initial=gpio.LOW)
+                self.delay()
                 gpio.setup(self.gpio_dio, gpio.IN, gpio.PUD_UP)
+                self.delay()
 
-        gpio.output(self.gpio_clk, gpio.HIGH)
-        gpio.setup(self.gpio_dio, gpio.OUT, gpio.PUD_OFF, initial=gpio.LOW)
         gpio.output(self.gpio_clk, gpio.LOW)
+        self.delay()
+        gpio.setup(self.gpio_dio, gpio.OUT, gpio.PUD_OFF, initial=gpio.LOW)
+        self.delay()
 
     def set_char(self, pos, segs):
         self.start();
@@ -158,18 +166,27 @@ class TM1637(object):
     def start(self):
         # high->low clock while dio low
         gpio.output(self.gpio_clk, gpio.HIGH)
+        self.delay()
         gpio.output(self.gpio_dio, gpio.LOW)
+        self.delay()
         gpio.output(self.gpio_clk, gpio.LOW)
+        self.delay()
 
     def stop(self):
         # low->high dio while clock high
         gpio.output(self.gpio_dio, gpio.LOW)
+        self.delay()
         gpio.output(self.gpio_clk, gpio.HIGH)
+        self.delay()
         gpio.output(self.gpio_dio, gpio.HIGH)
+        self.delay()
+
+    def delay(self):
+        pass
 
 
 def main():
-    # demo ms hex counter
+    # demo hex counter
     disp = TM1637(gpio_clk=17, gpio_dio=18)
     from time import sleep
     from itertools import cycle

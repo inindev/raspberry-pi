@@ -146,6 +146,24 @@ class TM1637(object):
             self.write_byte(segs);
         self.stop();
 
+    def set_string(self, str):
+        segs_list = []
+
+        rstr = reversed(str)
+        for ch in rstr:
+            pt = (ch == '.')
+            if pt:
+                ch = next(rstr)
+            segs = 0
+            if ch != ' ':
+                dg = int(ch, 16)
+                segs = self.HEX_SEG_MAP[dg]
+            if pt:
+                segs |= self.SEG_POINT
+            segs_list.insert(0, segs)
+
+        self.set_chars(segs_list, 4-len(segs_list))
+
     # display 0-8: 0=off, 8=brightest
     @property
     def brightness(self):
@@ -188,14 +206,15 @@ class TM1637(object):
 def main():
     # demo hex counter
     disp = TM1637(gpio_clk=17, gpio_dio=18)
-    from time import sleep
     from itertools import cycle
     for num in cycle(range(0x10000)):
-        disp.set_char(0, disp.HEX_SEG_MAP[(num >> 12) & 0x0f])
-        disp.set_char(1, disp.HEX_SEG_MAP[(num >>  8) & 0x0f])
-        disp.set_char(2, disp.HEX_SEG_MAP[(num >>  4) & 0x0f])
-        disp.set_char(3, disp.HEX_SEG_MAP[num & 0x0f])
-        sleep(0.001)
+        if num % 2 == 0:  # alternate
+            disp.set_string('{:x}'.format(num))
+        else:
+            disp.set_char(0, disp.HEX_SEG_MAP[(num >> 12) & 0x0f])
+            disp.set_char(1, disp.HEX_SEG_MAP[(num >>  8) & 0x0f])
+            disp.set_char(2, disp.HEX_SEG_MAP[(num >>  4) & 0x0f])
+            disp.set_char(3, disp.HEX_SEG_MAP[num & 0x0f])
 
 
 if __name__ == '__main__':

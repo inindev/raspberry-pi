@@ -95,35 +95,16 @@ class TM1637(object):
         gpio.cleanup()
 
     def write_byte(self, val):
-        # lsb -> msb
-        for i in range(8):
-            b = (val >> i) & 0x01
-            gpio.output(self.gpio_dio, b)
-            self.delay()
-            gpio.output(self.gpio_clk, gpio.HIGH)
-            self.delay()
-            gpio.output(self.gpio_clk, gpio.LOW)
-            self.delay()
+        self.shift_out(val)
+
+        # t-wait (1us min)
+        for _ in range(8): pass
 
         # read ack
         gpio.setup(self.gpio_dio, gpio.IN, gpio.PUD_UP)
-        self.delay()
-        gpio.output(self.gpio_clk, gpio.HIGH)
-        self.delay()
-
-        for i in range(1, 1025):
-            if gpio.input(self.gpio_dio) == gpio.LOW:
-                break
-            if i % 128 == 0:
-                gpio.setup(self.gpio_dio, gpio.OUT, gpio.PUD_OFF, initial=gpio.LOW)
-                self.delay()
-                gpio.setup(self.gpio_dio, gpio.IN, gpio.PUD_UP)
-                self.delay()
-
-        gpio.output(self.gpio_clk, gpio.LOW)
-        self.delay()
+        ack = self.shift_in(1)
         gpio.setup(self.gpio_dio, gpio.OUT, gpio.PUD_OFF, initial=gpio.LOW)
-        self.delay()
+        return ack
 
     def set_char(self, pos, segs):
         self.start();
@@ -181,26 +162,34 @@ class TM1637(object):
     def clear(self):
         self.set_chars([0,0,0,0]) # 4 char display
 
+    def shift_in(self, bits=8, lsb_msb=True):
+        val = 0;
+        for i in range(bits) if lsb_msb else reversed(range(bits)):
+            # data valid on rising edge of clock
+            gpio.output(self.gpio_clk, gpio.HIGH)
+            val |= (gpio.input(self.gpio_dio) << i)
+            gpio.output(self.gpio_clk, gpio.LOW)
+        return val
+
+    def shift_out(self, val, bits=8, lsb_msb=True):
+        for i in range(bits) if lsb_msb else reversed(range(bits)):
+            b = (val >> i) & 0x01
+            gpio.output(self.gpio_dio, b)
+            # data is read on rising edge of clock
+            gpio.output(self.gpio_clk, gpio.HIGH)
+            gpio.output(self.gpio_clk, gpio.LOW)
+
     def start(self):
         # high->low clock while dio low
         gpio.output(self.gpio_clk, gpio.HIGH)
-        self.delay()
         gpio.output(self.gpio_dio, gpio.LOW)
-        self.delay()
         gpio.output(self.gpio_clk, gpio.LOW)
-        self.delay()
 
     def stop(self):
         # low->high dio while clock high
         gpio.output(self.gpio_dio, gpio.LOW)
-        self.delay()
         gpio.output(self.gpio_clk, gpio.HIGH)
-        self.delay()
         gpio.output(self.gpio_dio, gpio.HIGH)
-        self.delay()
-
-    def delay(self):
-        pass
 
 
 def main():
